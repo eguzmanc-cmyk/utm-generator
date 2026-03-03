@@ -22,6 +22,8 @@ supabase = init_supabase()
 
 if 'utm_success' not in st.session_state:
     st.session_state.utm_success = False
+if 'last_generated_url' not in st.session_state:
+    st.session_state.last_generated_url = None
 
 # Tipografía e estilos globales
 btn_color = "#16a34a" if st.session_state.utm_success else "#0d9488"
@@ -267,12 +269,15 @@ with tab1:
                              campaign_medium, generated_url, campaign_name, campaign_id,
                              campaign_term, campaign_content, description)
                     st.session_state.utm_success = True
-                    st.success("✅ UTM generado y guardado en el historial")
-                    st.markdown("**Tu URL con UTM** (usa el botón 📋 para copiar):")
-                    st.code(generated_url, language=None)
+                    st.session_state.last_generated_url = generated_url
                     st.rerun()
                 except Exception as e:
                     st.error(f"❌ Error al guardar: {e}")
+
+    if st.session_state.last_generated_url:
+        st.success("✅ UTM generado y guardado en el historial")
+        st.markdown("**Tu URL con UTM** (usa el botón 📋 para copiar):")
+        st.code(st.session_state.last_generated_url, language=None)
 
 with tab2:
     st.subheader("Historial de UTMs")

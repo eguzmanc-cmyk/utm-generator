@@ -1,8 +1,8 @@
 def save_utm(supabase, user_id, website_url, source, medium, generated_url,
-             campaign_name=None, campaign_id=None, term=None, content=None, 
-             description=None):
+             campaign_name=None, campaign_id=None, term=None, content=None,
+             description=None, template_name=None):
     """Guarda UTM en Supabase"""
-    
+
     data = {
         "website_url": website_url,
         "campaign_source": source,
@@ -13,6 +13,7 @@ def save_utm(supabase, user_id, website_url, source, medium, generated_url,
         "campaign_content": content or None,
         "description": description or None,
         "generated_url": generated_url,
+        "template_name": template_name or None,
     }
     # Quitar campos None para no enviarlos a Supabase
     data = {k: v for k, v in data.items() if v is not None}

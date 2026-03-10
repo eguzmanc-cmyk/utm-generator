@@ -313,47 +313,94 @@ with tab2:
         st.error(f"Error al cargar historial: {e}")
 
 with tab3:
-    st.subheader("Gestionar opciones de desplegables")
-    st.caption("Agrega o elimina valores que aparecen en los selectores de Source y Medium.")
+    st.subheader("⚙️ Configuración de desplegables")
 
-    FIELD_LABELS = {
-        "source":  "Campaign Source",
-        "medium":  "Campaign Medium",
-        "name":    "Campaign Name",
-        "id":      "Campaign ID",
-        "term":    "Campaign Term",
-        "content": "Campaign Content",
+    st.markdown("""
+        <div style="background-color:#f0fdfa; border-left:4px solid #0d9488; border-radius:4px; padding:1rem 1.25rem; margin-bottom:1.5rem;">
+            <p style="margin:0 0 0.5rem 0; font-weight:600; color:#0d9488; font-size:0.95rem;">¿Para qué sirve esta sección?</p>
+            <p style="margin:0 0 0.6rem 0; color:#374151; font-size:0.88rem; line-height:1.7;">
+                Aquí defines qué opciones aparecen en los <strong>menús desplegables</strong> del formulario de creación de UTMs.
+                Cada campo del generador (Source, Medium, Name, ID, Term y Content) tiene su propia lista de valores predefinidos
+                que tú y tu equipo pueden personalizar libremente.
+            </p>
+            <p style="margin:0 0 0.4rem 0; color:#374151; font-size:0.88rem; line-height:1.7;">
+                <strong>Puedes:</strong>
+            </p>
+            <ul style="margin:0; padding-left:1.2rem; color:#374151; font-size:0.88rem; line-height:1.9;">
+                <li>➕ <strong>Agregar</strong> nuevas opciones que el equipo usará frecuentemente</li>
+                <li>🗑️ <strong>Eliminar</strong> opciones que ya no son relevantes</li>
+                <li>✏️ Los cambios son <strong>inmediatos y compartidos</strong> con todo el equipo</li>
+                <li>💡 Si en el formulario necesitas un valor que no está en la lista, siempre puedes elegir <strong>"Otro..."</strong> y escribirlo manualmente</li>
+            </ul>
+        </div>
+    """, unsafe_allow_html=True)
+
+    FIELD_META = {
+        "source":  {"label": "Campaign Source",  "icon": "🌐", "desc": "De dónde viene el tráfico. Ej: google, newsletter, instagram, linkedin"},
+        "medium":  {"label": "Campaign Medium",  "icon": "📡", "desc": "Tipo de canal o formato. Ej: cpc, email, organic, banner, social"},
+        "name":    {"label": "Campaign Name",    "icon": "🏷️", "desc": "Nombre de la campaña. Ej: lanzamiento_q1, black_friday, the_idea"},
+        "id":      {"label": "Campaign ID",      "icon": "🔢", "desc": "Identificador único de campaña. Ej: gbm_q1_2025, meta_camp_001"},
+        "term":    {"label": "Campaign Term",    "icon": "🔍", "desc": "Palabra clave SEM. Ej: software_financiero, gbm_broker, inversion_mexico"},
+        "content": {"label": "Campaign Content", "icon": "🎨", "desc": "Variante de creatividad o A/B. Ej: banner_azul, cta_registrate, video_30s"},
     }
 
     try:
         all_options = get_all_options(supabase)
 
-        for field_key, field_label in FIELD_LABELS.items():
-            st.markdown(f"### {field_label}")
+        for field_key, meta in FIELD_META.items():
             rows = all_options.get(field_key, [])
+            count = len(rows)
+
+            st.markdown(f"""
+                <div style="margin-top:1.5rem; margin-bottom:0.25rem;">
+                    <span style="font-size:1.1rem; font-weight:700; color:#111827;">{meta['icon']} {meta['label']}</span>
+                    <span style="margin-left:0.6rem; background:#e5e7eb; color:#6b7280; font-size:0.75rem;
+                                 font-weight:600; padding:2px 8px; border-radius:999px;">{count} opción{'es' if count != 1 else ''}</span>
+                </div>
+                <p style="margin:0 0 0.75rem 0; color:#6b7280; font-size:0.82rem;">{meta['desc']}</p>
+            """, unsafe_allow_html=True)
 
             if rows:
                 for row in rows:
-                    col_val, col_del = st.columns([5, 1])
+                    col_val, col_del = st.columns([6, 1])
                     with col_val:
-                        st.text(row["value"])
+                        st.markdown(f"""
+                            <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px;
+                                        padding:0.4rem 0.75rem; font-size:0.88rem; color:#111827; font-family:'Inter',sans-serif;">
+                                {row['value']}
+                            </div>
+                        """, unsafe_allow_html=True)
                     with col_del:
-                        if st.button("🗑️", key=f"del_opt_{row['id']}"):
+                        if st.button("🗑️", key=f"del_opt_{row['id']}", help=f"Eliminar '{row['value']}'"):
                             delete_option(supabase, row["id"])
                             st.rerun()
             else:
-                st.caption("Sin opciones aún.")
+                st.markdown("""
+                    <div style="background:#fff7ed; border:1px dashed #fed7aa; border-radius:6px;
+                                padding:0.6rem 1rem; color:#92400e; font-size:0.85rem; margin-bottom:0.5rem;">
+                        Sin opciones aún — agrega la primera abajo.
+                    </div>
+                """, unsafe_allow_html=True)
 
             with st.form(key=f"add_opt_{field_key}"):
-                new_val = st.text_input(f"Nueva opción para {field_label}:", placeholder="nueva_opcion")
-                if st.form_submit_button("➕ Agregar", use_container_width=False):
+                col_input, col_btn = st.columns([4, 1])
+                with col_input:
+                    new_val = st.text_input(
+                        "Nueva opción:",
+                        placeholder=f"Escribe el valor y presiona Agregar…",
+                        label_visibility="collapsed"
+                    )
+                with col_btn:
+                    submitted_opt = st.form_submit_button("➕ Agregar", use_container_width=True)
+
+                if submitted_opt:
                     if new_val.strip():
                         try:
                             add_option(supabase, field_key, new_val.strip().lower())
-                            st.success(f"✅ '{new_val.strip()}' agregado a {field_label}")
+                            st.success(f"✅ **'{new_val.strip()}'** agregado a {meta['label']}")
                             st.rerun()
                         except Exception as e:
-                            st.error(f"❌ Error: {e}")
+                            st.error(f"❌ Ya existe o hubo un error: {e}")
                     else:
                         st.warning("Escribe un valor antes de agregar.")
 

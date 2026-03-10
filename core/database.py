@@ -40,3 +40,35 @@ def delete_utm(supabase, utm_id):
     """Elimina una UTM"""
     response = supabase.table("utms").delete().eq("id", utm_id).execute()
     return response
+
+
+# --- utm_options ---
+
+def get_options(supabase, field_name):
+    """Obtiene las opciones de un campo específico"""
+    response = supabase.table("utm_options").select("*").eq("field_name", field_name).order("value").execute()
+    return [row["value"] for row in response.data]
+
+
+def add_option(supabase, field_name, value):
+    """Agrega una opción a un campo"""
+    response = supabase.table("utm_options").insert({"field_name": field_name, "value": value}).execute()
+    return response
+
+
+def delete_option(supabase, option_id):
+    """Elimina una opción por ID"""
+    response = supabase.table("utm_options").delete().eq("id", option_id).execute()
+    return response
+
+
+def get_all_options(supabase):
+    """Obtiene todas las opciones agrupadas por field_name"""
+    response = supabase.table("utm_options").select("*").order("field_name").execute()
+    grouped = {}
+    for row in response.data:
+        field = row["field_name"]
+        if field not in grouped:
+            grouped[field] = []
+        grouped[field].append(row)
+    return grouped

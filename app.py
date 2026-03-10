@@ -3,7 +3,7 @@ import base64
 import os
 from dotenv import load_dotenv
 from core.utm_generator import generate_utm_url, validate_utm_data
-from core.database import save_utm, get_all_utms, delete_utm
+from core.database import save_utm, get_all_utms, delete_utm, get_options, add_option, delete_option, get_all_options
 from core.supabase_client import create_custom_client
 
 load_dotenv()
@@ -101,7 +101,7 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["Crear UTM", "Historial"])
+tab1, tab2, tab3 = st.tabs(["Crear UTM", "Historial", "⚙️ Configuración"])
 
 with tab1:
     st.subheader("Crear nuevo UTM")
@@ -115,22 +115,30 @@ with tab1:
 
         col1, col2 = st.columns(2)
 
+        source_options = get_options(supabase, "source")
+        medium_options = get_options(supabase, "medium")
+
         with col1:
             website_url = st.text_input(
                 "Website URL *",
                 placeholder="https://www.gbm.com",
                 help="URL de destino del enlace. Debe incluir http:// o https://.\nEj: https://www.gbm.com/blog/the-idea"
             )
-            campaign_source = st.text_input(
+
+            source_choice = st.selectbox(
                 "Campaign Source *",
-                placeholder="google, newsletter, facebook",
+                options=source_options + ["Otro..."],
                 help="Plataforma o remitente del tráfico. Identifica de dónde viene el usuario.\nEj: google · linkedin · newsletter · instagram · gbm_blog"
             )
-            campaign_medium = st.text_input(
+            campaign_source = st.text_input("Especifica el source:", placeholder="mi_fuente") if source_choice == "Otro..." else source_choice
+
+            medium_choice = st.selectbox(
                 "Campaign Medium *",
-                placeholder="cpc, email, banner",
+                options=medium_options + ["Otro..."],
                 help="Canal o tipo de tráfico. Describe cómo llega el usuario.\nEj: cpc · email · organic · banner · social · referral"
             )
+            campaign_medium = st.text_input("Especifica el medium:", placeholder="mi_medium") if medium_choice == "Otro..." else medium_choice
+
             campaign_name = st.text_input(
                 "Campaign Name",
                 placeholder="spring_sale",
@@ -304,3 +312,49 @@ with tab2:
             st.info("No hay UTMs guardados aún. ¡Crea el primero!")
     except Exception as e:
         st.error(f"Error al cargar historial: {e}")
+
+with tab3:
+    st.subheader("Gestionar opciones de desplegables")
+    st.caption("Agrega o elimina valores que aparecen en los selectores de Source y Medium.")
+
+    FIELD_LABELS = {
+        "source": "Campaign Source",
+        "medium": "Campaign Medium",
+    }
+
+    try:
+        all_options = get_all_options(supabase)
+
+        for field_key, field_label in FIELD_LABELS.items():
+            st.markdown(f"### {field_label}")
+            rows = all_options.get(field_key, [])
+
+            if rows:
+                for row in rows:
+                    col_val, col_del = st.columns([5, 1])
+                    with col_val:
+                        st.text(row["value"])
+                    with col_del:
+                        if st.button("🗑️", key=f"del_opt_{row['id']}"):
+                            delete_option(supabase, row["id"])
+                            st.rerun()
+            else:
+                st.caption("Sin opciones aún.")
+
+            with st.form(key=f"add_opt_{field_key}"):
+                new_val = st.text_input(f"Nueva opción para {field_label}:", placeholder="nueva_opcion")
+                if st.form_submit_button("➕ Agregar", use_container_width=False):
+                    if new_val.strip():
+                        try:
+                            add_option(supabase, field_key, new_val.strip().lower())
+                            st.success(f"✅ '{new_val.strip()}' agregado a {field_label}")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Error: {e}")
+                    else:
+                        st.warning("Escribe un valor antes de agregar.")
+
+            st.divider()
+
+    except Exception as e:
+        st.error(f"Error al cargar opciones: {e}")

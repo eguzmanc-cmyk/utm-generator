@@ -115,8 +115,18 @@ with tab1:
 
         col1, col2 = st.columns(2)
 
-        source_options = get_options(supabase, "source")
-        medium_options = get_options(supabase, "medium")
+        source_opts = get_options(supabase, "source")
+        medium_opts = get_options(supabase, "medium")
+        name_opts   = get_options(supabase, "name")
+        id_opts     = get_options(supabase, "id")
+        term_opts   = get_options(supabase, "term")
+        content_opts = get_options(supabase, "content")
+
+        def selectbox_with_other(label, options, key, help_text=""):
+            choice = st.selectbox(label, options=options + ["Otro..."], key=f"sel_{key}", help=help_text)
+            if choice == "Otro...":
+                return st.text_input(f"Especifica ({label.split(' *')[0].strip()}):", key=f"txt_{key}")
+            return choice
 
         with col1:
             website_url = st.text_input(
@@ -124,47 +134,36 @@ with tab1:
                 placeholder="https://www.gbm.com",
                 help="URL de destino del enlace. Debe incluir http:// o https://.\nEj: https://www.gbm.com/blog/the-idea"
             )
-
-            source_choice = st.selectbox(
-                "Campaign Source *",
-                options=source_options + ["Otro..."],
-                help="Plataforma o remitente del tráfico. Identifica de dónde viene el usuario.\nEj: google · linkedin · newsletter · instagram · gbm_blog"
+            campaign_source = selectbox_with_other(
+                "Campaign Source *", source_opts, "source",
+                "Plataforma o remitente del tráfico.\nEj: google · linkedin · newsletter · instagram"
             )
-            campaign_source = st.text_input("Especifica el source:", placeholder="mi_fuente") if source_choice == "Otro..." else source_choice
-
-            medium_choice = st.selectbox(
-                "Campaign Medium *",
-                options=medium_options + ["Otro..."],
-                help="Canal o tipo de tráfico. Describe cómo llega el usuario.\nEj: cpc · email · organic · banner · social · referral"
+            campaign_medium = selectbox_with_other(
+                "Campaign Medium *", medium_opts, "medium",
+                "Canal o tipo de tráfico.\nEj: cpc · email · organic · banner · social"
             )
-            campaign_medium = st.text_input("Especifica el medium:", placeholder="mi_medium") if medium_choice == "Otro..." else medium_choice
-
-            campaign_name = st.text_input(
-                "Campaign Name",
-                placeholder="spring_sale",
-                help="Nombre de la campaña. Usa guiones bajos en vez de espacios.\nEj: lanzamiento_q1 · black_friday_2024 · the_idea_abril"
+            campaign_name = selectbox_with_other(
+                "Campaign Name", name_opts, "name",
+                "Nombre de la campaña.\nEj: lanzamiento_q1 · black_friday_2024 · the_idea_abril"
             )
 
         with col2:
-            campaign_id = st.text_input(
-                "Campaign ID",
-                placeholder="abc123",
-                help="Identificador único para vincular con plataformas de pauta (Google Ads, Meta, etc.).\nEj: 12345 · gbm_q1_2025 · meta_camp_003"
+            campaign_id = selectbox_with_other(
+                "Campaign ID", id_opts, "id",
+                "Identificador único para vincular con plataformas de pauta.\nEj: 12345 · gbm_q1_2025 · meta_camp_003"
             )
-            campaign_term = st.text_input(
-                "Campaign Term",
-                placeholder="palabras clave",
-                help="Palabra clave de búsqueda pagada (SEM).\nEj: software_financiero · gbm_broker · inversion_mexico"
+            campaign_term = selectbox_with_other(
+                "Campaign Term", term_opts, "term",
+                "Palabra clave de búsqueda pagada (SEM).\nEj: software_financiero · gbm_broker · inversion_mexico"
             )
-            campaign_content = st.text_input(
-                "Campaign Content",
-                placeholder="variante del anuncio",
-                help="Diferencia creatividades en pruebas A/B o cuando hay múltiples variantes.\nEj: banner_azul · cta_registrate · video_30s"
+            campaign_content = selectbox_with_other(
+                "Campaign Content", content_opts, "content",
+                "Diferencia creatividades en pruebas A/B.\nEj: banner_azul · cta_registrate · video_30s"
             )
             description = st.text_area(
                 "Descripción",
                 placeholder="¿Para qué es este UTM? ¿Quién lo pidió? ¿Dónde se usa?",
-                help="Contexto interno — no aparece en la URL. Documenta el propósito para que el equipo lo entienda.\nEj: Banner de cierre para campaña Q1, solicitado por Valeria."
+                help="Contexto interno — no aparece en la URL.\nEj: Banner de cierre para campaña Q1, solicitado por Valeria."
             )
 
         submitted = st.form_submit_button("Generar UTM", type="primary", use_container_width=True)
@@ -318,8 +317,12 @@ with tab3:
     st.caption("Agrega o elimina valores que aparecen en los selectores de Source y Medium.")
 
     FIELD_LABELS = {
-        "source": "Campaign Source",
-        "medium": "Campaign Medium",
+        "source":  "Campaign Source",
+        "medium":  "Campaign Medium",
+        "name":    "Campaign Name",
+        "id":      "Campaign ID",
+        "term":    "Campaign Term",
+        "content": "Campaign Content",
     }
 
     try:

@@ -1,8 +1,9 @@
 import streamlit as st
 import base64
+import json
 import os
 from dotenv import load_dotenv
-from core.utm_generator import generate_utm_url, validate_utm_data
+from core.utm_generator import generate_utm_url, validate_utm_data, normalize_utm_param
 from core.database import save_utm, get_all_utms, delete_utm, get_options, add_option, delete_option, get_all_options
 from core.supabase_client import create_custom_client
 
@@ -20,6 +21,18 @@ def init_supabase():
 
 supabase = init_supabase()
 
+@st.cache_data(ttl=300)
+def load_all_options(_supabase):
+    """Una sola llamada a Supabase para todas las opciones. Cacheada 5 min."""
+    return get_all_options(_supabase)
+
+def get_cached_options(field_name):
+    all_opts = load_all_options(supabase)
+    return [r["value"] for r in all_opts.get(field_name, [])]
+
+def invalidate_options_cache():
+    load_all_options.clear()
+
 if 'utm_success' not in st.session_state:
     st.session_state.utm_success = False
 if 'last_generated_url' not in st.session_state:
@@ -27,7 +40,6 @@ if 'last_generated_url' not in st.session_state:
 if 'duplicate_utm' not in st.session_state:
     st.session_state.duplicate_utm = None
 
-# Tipografía e estilos globales
 btn_color = "#16a34a" if st.session_state.utm_success else "#0d9488"
 
 st.markdown(f"""
@@ -75,7 +87,6 @@ st.markdown(f"""
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
 
-    /* Tooltip ? más llamativo */
     button[data-testid="tooltipHoverTarget"] {{
         opacity: 1 !important;
     }}
@@ -103,6 +114,7 @@ st.markdown(f"""
 
 tab1, tab2, tab3 = st.tabs(["Crear UTM", "Historial", "⚙️ Configuración"])
 
+# ─── TAB 1: CREAR UTM ────────────────────────────────────────────────────────
 with tab1:
     st.subheader("Crear nuevo UTM")
 
@@ -115,18 +127,12 @@ with tab1:
 
         col1, col2 = st.columns(2)
 
-        source_opts = get_options(supabase, "source")
-        medium_opts = get_options(supabase, "medium")
-        name_opts   = get_options(supabase, "name")
-        id_opts     = get_options(supabase, "id")
-        term_opts   = get_options(supabase, "term")
-        content_opts = get_options(supabase, "content")
-
-        def selectbox_with_other(label, options, key, help_text=""):
-            choice = st.selectbox(label, options=options + ["Otro..."], key=f"sel_{key}", help=help_text)
-            if choice == "Otro...":
-                return st.text_input(f"Especifica ({label.split(' *')[0].strip()}):", key=f"txt_{key}")
-            return choice
+        source_opts  = get_cached_options("source")
+        medium_opts  = get_cached_options("medium")
+        name_opts    = get_cached_options("name")
+        id_opts      = get_cached_options("id")
+        term_opts    = get_cached_options("term")
+        content_opts = get_cached_options("content")
 
         with col1:
             website_url = st.text_input(
@@ -134,31 +140,37 @@ with tab1:
                 placeholder="https://www.gbm.com",
                 help="URL de destino del enlace. Debe incluir http:// o https://.\nEj: https://www.gbm.com/blog/the-idea"
             )
-            campaign_source = selectbox_with_other(
-                "Campaign Source *", source_opts, "source",
-                "Plataforma o remitente del tráfico.\nEj: google · linkedin · newsletter · instagram"
+            campaign_source = st.selectbox(
+                "Campaign Source *", options=source_opts,
+                index=None, placeholder="Selecciona una o créala en ⚙️ Configuración",
+                help="Plataforma o remitente del tráfico.\nEj: google · linkedin · newsletter · instagram"
             )
-            campaign_medium = selectbox_with_other(
-                "Campaign Medium *", medium_opts, "medium",
-                "Canal o tipo de tráfico.\nEj: cpc · email · organic · banner · social"
+            campaign_medium = st.selectbox(
+                "Campaign Medium *", options=medium_opts,
+                index=None, placeholder="Selecciona una o créala en ⚙️ Configuración",
+                help="Canal o tipo de tráfico.\nEj: cpc · email · organic · banner · social"
             )
-            campaign_name = selectbox_with_other(
-                "Campaign Name", name_opts, "name",
-                "Nombre de la campaña.\nEj: lanzamiento_q1 · black_friday_2024 · the_idea_abril"
+            campaign_name = st.selectbox(
+                "Campaign Name", options=name_opts,
+                index=None, placeholder="Selecciona una o créala en ⚙️ Configuración",
+                help="Nombre de la campaña.\nEj: lanzamiento_q1 · black_friday_2024 · the_idea_abril"
             )
 
         with col2:
-            campaign_id = selectbox_with_other(
-                "Campaign ID", id_opts, "id",
-                "Identificador único para vincular con plataformas de pauta.\nEj: 12345 · gbm_q1_2025 · meta_camp_003"
+            campaign_id = st.selectbox(
+                "Campaign ID", options=id_opts,
+                index=None, placeholder="Selecciona una o créala en ⚙️ Configuración",
+                help="Identificador único para vincular con plataformas de pauta.\nEj: 12345 · gbm_q1_2025 · meta_camp_003"
             )
-            campaign_term = selectbox_with_other(
-                "Campaign Term", term_opts, "term",
-                "Palabra clave de búsqueda pagada (SEM).\nEj: software_financiero · gbm_broker · inversion_mexico"
+            campaign_term = st.selectbox(
+                "Campaign Term", options=term_opts,
+                index=None, placeholder="Selecciona una o créala en ⚙️ Configuración",
+                help="Palabra clave de búsqueda pagada (SEM).\nEj: software_financiero · gbm_broker · inversion_mexico"
             )
-            campaign_content = selectbox_with_other(
-                "Campaign Content", content_opts, "content",
-                "Diferencia creatividades en pruebas A/B.\nEj: banner_azul · cta_registrate · video_30s"
+            campaign_content = st.selectbox(
+                "Campaign Content", options=content_opts,
+                index=None, placeholder="Selecciona una o créala en ⚙️ Configuración",
+                help="Diferencia creatividades en pruebas A/B.\nEj: banner_azul · cta_registrate · video_30s"
             )
             description = st.text_area(
                 "Descripción",
@@ -195,6 +207,7 @@ with tab1:
         st.markdown("**Tu URL con UTM** (usa el botón 📋 para copiar):")
         st.code(st.session_state.last_generated_url, language=None)
 
+# ─── TAB 2: HISTORIAL ────────────────────────────────────────────────────────
 with tab2:
     st.subheader("Historial de UTMs")
 
@@ -223,7 +236,6 @@ with tab2:
         utms = get_all_utms(supabase)
         if utms:
             for utm in utms:
-                # Etiqueta: prioriza nombre de plantilla si existe
                 if utm.get('template_name'):
                     label = f"🏷️ **{utm['template_name']}** — {utm['campaign_source']} / {utm['campaign_medium']}"
                 else:
@@ -250,7 +262,6 @@ with tab2:
                                 st.session_state.duplicate_utm = None
                             st.rerun()
 
-                    # Form inline de duplicado
                     if st.session_state.duplicate_utm and st.session_state.duplicate_utm.get('id') == utm['id']:
                         pre = st.session_state.duplicate_utm
                         st.divider()
@@ -265,15 +276,15 @@ with tab2:
 
                             dup_col1, dup_col2 = st.columns(2)
                             with dup_col1:
-                                dup_url = st.text_input("Website URL *", value=pre.get('website_url') or '')
-                                dup_source = st.text_input("Campaign Source *", value=pre.get('campaign_source') or '')
-                                dup_medium = st.text_input("Campaign Medium *", value=pre.get('campaign_medium') or '')
-                                dup_name = st.text_input("Campaign Name", value=pre.get('campaign_name') or '')
+                                dup_url     = st.text_input("Website URL *",      value=pre.get('website_url') or '')
+                                dup_source  = st.text_input("Campaign Source *",  value=pre.get('campaign_source') or '')
+                                dup_medium  = st.text_input("Campaign Medium *",  value=pre.get('campaign_medium') or '')
+                                dup_name    = st.text_input("Campaign Name",      value=pre.get('campaign_name') or '')
                             with dup_col2:
-                                dup_id = st.text_input("Campaign ID", value=pre.get('campaign_id') or '')
-                                dup_term = st.text_input("Campaign Term", value=pre.get('campaign_term') or '')
-                                dup_content = st.text_input("Campaign Content", value=pre.get('campaign_content') or '')
-                                dup_desc = st.text_area("Descripción", value=pre.get('description') or '')
+                                dup_id      = st.text_input("Campaign ID",        value=pre.get('campaign_id') or '')
+                                dup_term    = st.text_input("Campaign Term",      value=pre.get('campaign_term') or '')
+                                dup_content = st.text_input("Campaign Content",   value=pre.get('campaign_content') or '')
+                                dup_desc    = st.text_area("Descripción",         value=pre.get('description') or '')
 
                             sub_col, cancel_col = st.columns(2)
                             with sub_col:
@@ -312,6 +323,7 @@ with tab2:
     except Exception as e:
         st.error(f"Error al cargar historial: {e}")
 
+# ─── TAB 3: CONFIGURACIÓN ────────────────────────────────────────────────────
 with tab3:
     st.subheader("⚙️ Configuración de desplegables")
 
@@ -320,20 +332,49 @@ with tab3:
             <p style="margin:0 0 0.5rem 0; font-weight:600; color:#0d9488; font-size:0.95rem;">¿Para qué sirve esta sección?</p>
             <p style="margin:0 0 0.6rem 0; color:#374151; font-size:0.88rem; line-height:1.7;">
                 Aquí defines qué opciones aparecen en los <strong>menús desplegables</strong> del formulario de creación de UTMs.
-                Cada campo del generador (Source, Medium, Name, ID, Term y Content) tiene su propia lista de valores predefinidos
-                que tú y tu equipo pueden personalizar libremente.
+                Cada campo del generador (Source, Medium, Name, ID, Term y Content) tiene su propia lista de valores
+                que tú y tu equipo gestionan desde aquí.
             </p>
             <p style="margin:0 0 0.4rem 0; color:#374151; font-size:0.88rem; line-height:1.7;">
                 <strong>Puedes:</strong>
             </p>
-            <ul style="margin:0; padding-left:1.2rem; color:#374151; font-size:0.88rem; line-height:1.9;">
+            <ul style="margin:0 0 0.75rem 0; padding-left:1.2rem; color:#374151; font-size:0.88rem; line-height:1.9;">
                 <li>➕ <strong>Agregar</strong> nuevas opciones que el equipo usará frecuentemente</li>
                 <li>🗑️ <strong>Eliminar</strong> opciones que ya no son relevantes</li>
                 <li>✏️ Los cambios son <strong>inmediatos y compartidos</strong> con todo el equipo</li>
-                <li>💡 Si en el formulario necesitas un valor que no está en la lista, siempre puedes elegir <strong>"Otro..."</strong> y escribirlo manualmente</li>
             </ul>
+            <p style="margin:0 0 0.4rem 0; font-weight:600; color:#0d9488; font-size:0.88rem;">✨ Escribe como quieras — el sistema normaliza solo</p>
+            <p style="margin:0; color:#374151; font-size:0.88rem; line-height:1.7;">
+                No te preocupes por mayúsculas, acentos ni espacios. El sistema convierte automáticamente cualquier valor
+                al formato correcto para UTMs: <code>Mi Fuente</code> → <code>mi_fuente</code>,
+                <code>Black Friday 2025</code> → <code>black_friday_2025</code>,
+                <code>Lanzamiento Q1</code> → <code>lanzamiento_q1</code>.
+                Si el mensaje de confirmación muestra un valor diferente al que escribiste, así es como quedó guardado.
+            </p>
         </div>
     """, unsafe_allow_html=True)
+
+    # Botón exportar JSON
+    try:
+        all_options_export = get_all_options(supabase)
+        export_data = {}
+        for fk, rows in all_options_export.items():
+            export_data[fk] = [
+                {"value": r["value"], "created_at": r.get("created_at", "")}
+                for r in rows
+            ]
+        json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
+        col_exp, _ = st.columns([1, 4])
+        with col_exp:
+            st.download_button(
+                "📥 Exportar JSON",
+                data=json_str,
+                file_name="utm_options.json",
+                mime="application/json",
+                use_container_width=True
+            )
+    except Exception as e:
+        st.error(f"Error al preparar exportación: {e}")
 
     FIELD_META = {
         "source":  {"label": "Campaign Source",  "icon": "🌐", "desc": "De dónde viene el tráfico. Ej: google, newsletter, instagram, linkedin"},
@@ -362,7 +403,7 @@ with tab3:
 
             if rows:
                 for row in rows:
-                    col_val, col_del = st.columns([6, 1])
+                    col_val, col_date, col_del = st.columns([4, 3, 1])
                     with col_val:
                         st.markdown(f"""
                             <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px;
@@ -370,9 +411,14 @@ with tab3:
                                 {row['value']}
                             </div>
                         """, unsafe_allow_html=True)
+                    with col_date:
+                        created = row.get('created_at', '')
+                        if created:
+                            st.caption(f"🕒 {created[:19].replace('T', ' ')}")
                     with col_del:
                         if st.button("🗑️", key=f"del_opt_{row['id']}", help=f"Eliminar '{row['value']}'"):
                             delete_option(supabase, row["id"])
+                            invalidate_options_cache()
                             st.rerun()
             else:
                 st.markdown("""
@@ -382,12 +428,17 @@ with tab3:
                     </div>
                 """, unsafe_allow_html=True)
 
+            # Mensaje de éxito de la acción anterior (persiste tras st.rerun)
+            config_msg = st.session_state.pop(f"_config_msg_{field_key}", None)
+            if config_msg:
+                st.success(config_msg)
+
             with st.form(key=f"add_opt_{field_key}"):
                 col_input, col_btn = st.columns([4, 1])
                 with col_input:
                     new_val = st.text_input(
                         "Nueva opción:",
-                        placeholder=f"Escribe el valor y presiona Agregar…",
+                        placeholder="Escribe el valor y presiona Agregar…",
                         label_visibility="collapsed"
                     )
                 with col_btn:
@@ -395,12 +446,29 @@ with tab3:
 
                 if submitted_opt:
                     if new_val.strip():
-                        try:
-                            add_option(supabase, field_key, new_val.strip().lower())
-                            st.success(f"✅ **'{new_val.strip()}'** agregado a {meta['label']}")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Ya existe o hubo un error: {e}")
+                        normalized = normalize_utm_param(new_val.strip())
+                        if not normalized:
+                            st.error(
+                                f"❌ **'{new_val}'** no es un valor UTM válido tras normalizar. "
+                                f"Solo se permiten letras, números, guión bajo (_) y puntos. "
+                                f"Revisa lo que escribiste e inténtalo de nuevo."
+                            )
+                        else:
+                            try:
+                                add_option(supabase, field_key, normalized)
+                                invalidate_options_cache()
+                                if normalized != new_val.strip():
+                                    st.session_state[f"_config_msg_{field_key}"] = (
+                                        f"✅ **'{normalized}'** agregado a {meta['label']} "
+                                        f"(normalizado desde '{new_val.strip()}')"
+                                    )
+                                else:
+                                    st.session_state[f"_config_msg_{field_key}"] = (
+                                        f"✅ **'{normalized}'** agregado a {meta['label']}"
+                                    )
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Ya existe o hubo un error: {e}")
                     else:
                         st.warning("Escribe un valor antes de agregar.")
 

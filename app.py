@@ -274,17 +274,61 @@ with tab2:
                                 placeholder="the-idea, the-story…"
                             )
 
+                            def _opts_with_value(field, val):
+                                """Devuelve la lista de opciones de la BD incluyendo val si no está."""
+                                opts = get_cached_options(field)
+                                if val and val not in opts:
+                                    opts = [val] + opts
+                                return opts
+
+                            def _index_of(opts, val):
+                                try:
+                                    return opts.index(val) if val else None
+                                except ValueError:
+                                    return None
+
                             dup_col1, dup_col2 = st.columns(2)
                             with dup_col1:
-                                dup_url     = st.text_input("Website URL *",      value=pre.get('website_url') or '')
-                                dup_source  = st.text_input("Campaign Source *",  value=pre.get('campaign_source') or '')
-                                dup_medium  = st.text_input("Campaign Medium *",  value=pre.get('campaign_medium') or '')
-                                dup_name    = st.text_input("Campaign Name",      value=pre.get('campaign_name') or '')
+                                dup_url = st.text_input("Website URL *", value=pre.get('website_url') or '')
+
+                                _s_opts = _opts_with_value("source", pre.get('campaign_source'))
+                                dup_source = st.selectbox(
+                                    "Campaign Source *", options=_s_opts,
+                                    index=_index_of(_s_opts, pre.get('campaign_source')),
+                                )
+
+                                _m_opts = _opts_with_value("medium", pre.get('campaign_medium'))
+                                dup_medium = st.selectbox(
+                                    "Campaign Medium *", options=_m_opts,
+                                    index=_index_of(_m_opts, pre.get('campaign_medium')),
+                                )
+
+                                _n_opts = _opts_with_value("name", pre.get('campaign_name'))
+                                dup_name = st.selectbox(
+                                    "Campaign Name", options=_n_opts,
+                                    index=_index_of(_n_opts, pre.get('campaign_name')),
+                                )
+
                             with dup_col2:
-                                dup_id      = st.text_input("Campaign ID",        value=pre.get('campaign_id') or '')
-                                dup_term    = st.text_input("Campaign Term",      value=pre.get('campaign_term') or '')
-                                dup_content = st.text_input("Campaign Content",   value=pre.get('campaign_content') or '')
-                                dup_desc    = st.text_area("Descripción",         value=pre.get('description') or '')
+                                _id_opts = _opts_with_value("id", pre.get('campaign_id'))
+                                dup_id = st.selectbox(
+                                    "Campaign ID", options=_id_opts,
+                                    index=_index_of(_id_opts, pre.get('campaign_id')),
+                                )
+
+                                _t_opts = _opts_with_value("term", pre.get('campaign_term'))
+                                dup_term = st.selectbox(
+                                    "Campaign Term", options=_t_opts,
+                                    index=_index_of(_t_opts, pre.get('campaign_term')),
+                                )
+
+                                _c_opts = _opts_with_value("content", pre.get('campaign_content'))
+                                dup_content = st.selectbox(
+                                    "Campaign Content", options=_c_opts,
+                                    index=_index_of(_c_opts, pre.get('campaign_content')),
+                                )
+
+                                dup_desc = st.text_area("Descripción", value=pre.get('description') or '')
 
                             sub_col, cancel_col = st.columns(2)
                             with sub_col:

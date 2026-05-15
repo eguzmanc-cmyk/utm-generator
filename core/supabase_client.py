@@ -11,6 +11,14 @@ load_dotenv()
 _current_code_verifier = None
 
 
+def _is_missing_secret(value):
+    if value is None:
+        return True
+    if isinstance(value, str) and value.strip().lower() in {"", "none", "null"}:
+        return True
+    return False
+
+
 def _generate_pkce_pair():
     """Genera code_verifier y code_challenge para PKCE"""
     code_verifier = secrets.token_urlsafe(64)
@@ -169,6 +177,11 @@ class SupabaseTableClient:
     def execute(self):
         endpoint = f"{self.url}/rest/v1/{self.table_name}"
 
+        if _is_missing_secret(self.url):
+            raise ValueError(
+                "SUPABASE_URL no está configurado correctamente para esta sesión."
+            )
+
         if hasattr(self, '_insert_data'):
             response = requests.post(endpoint, json=self._insert_data, headers=self.headers, timeout=10)
             if not response.ok:
@@ -230,4 +243,11 @@ def create_custom_client():
     except Exception:
         url = os.getenv("SUPABASE_URL")
         key = os.getenv("SUPABASE_KEY")
+
+    if _is_missing_secret(url) or _is_missing_secret(key):
+        raise ValueError(
+            "Faltan credenciales de Supabase. Define SUPABASE_URL y SUPABASE_KEY "
+            "en `.env` o `.streamlit/secrets.toml`."
+        )
+
     return CustomSupabaseClient(url, key)

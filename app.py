@@ -9,11 +9,39 @@ from core.supabase_client import create_custom_client
 
 load_dotenv()
 
+
+def is_app_enabled():
+    """Permite habilitar la app solo cuando se marca explícitamente."""
+    for key in ("APP_ENABLED", "STREAMLIT_APP_ENABLED"):
+        value = os.getenv(key)
+        if value is not None:
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+
+    try:
+        if "APP_ENABLED" in st.secrets:
+            value = str(st.secrets["APP_ENABLED"])
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+    except Exception:
+        pass
+
+    return False
+
+
+APP_ENABLED = is_app_enabled()
+
 st.set_page_config(
     page_title="Generador de UTMs",
     page_icon="🔗",
     layout="wide"
 )
+
+if not APP_ENABLED:
+    st.title("Servicio deshabilitado")
+    st.warning(
+        "Esta aplicación se ha puesto fuera de línea. "
+        "Si necesitas volver a publicarla, habilita `APP_ENABLED=true`."
+    )
+    st.stop()
 
 @st.cache_resource
 def init_supabase():
